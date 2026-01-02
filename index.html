@@ -311,27 +311,26 @@
     
     <div class="controls">
         
-        <div class="dataset-selector">
-            <div style="background: #f0f7ff; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #4CAF50;">
-                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
-                    <div style="flex: 1; min-width: 200px;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #333; font-size: 14px;">
-                            📊 Select Dataset:
-                        </label>
-                        <select id="dataset-selector" style="width: 100%; max-width: 400px; padding: 10px 12px; border: 2px solid #4CAF50; border-radius: 6px; font-size: 14px; background: white; cursor: pointer;">
-                            <option value="historical">Dataset 1: Historical Data (300 properties) - Revenue & Occupancy</option>
-                            <option value="scraped">Dataset 2: Fresh Scraped (230 properties) - Live Airbnb Data</option>
-                        </select>
-                    </div>
-                    <div style="font-size: 12px; color: #666; max-width: 400px;">
-                        <div id="dataset-info">
-                            <strong>Dataset 1:</strong> Historical performance data with revenue metrics, occupancy rates, and time-series analysis. Best for financial analysis.
-                        </div>
-                    </div>
+        <!-- Dataset Selector -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; margin-bottom: 20px; color: white;">
+            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 250px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 10px; font-size: 15px;">
+                        📊 Select Dataset
+                    </label>
+                    <select id="dataset-selector" style="width: 100%; padding: 12px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; background: white; color: #333;">
+                        <option value="dataset1">Dataset 1: Historical (300 props) - Revenue & Occupancy Data</option>
+                        <option value="dataset2">Dataset 2: Fresh Scraped (230 props) - Live Rhine Region</option>
+                    </select>
+                </div>
+                <div id="dataset-info" style="flex: 1; min-width: 300px; font-size: 13px; line-height: 1.6;">
+                    <strong>📈 Historical Data</strong><br>
+                    300 properties with TTM revenue, occupancy rates, and performance metrics. Best for financial analysis.
                 </div>
             </div>
         </div>
-        <div class="control-row">
+        
+<div class="control-row">
             <div class="control-group">
                 <label for="metric">Color by Metric:</label>
                 <select id="metric">
@@ -372,10 +371,12 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // Property data
-        // Dataset 1: Historical Data (Original)
-        // Contains: Revenue data, occupancy metrics, time-series analysis
-        // Source: Original dataset with TTM revenue and performance metrics
-        const dataset1_historical = const propertyData = [
+        // ============================================
+        // DUAL DATASET CONFIGURATION
+        // ============================================
+        
+        // Dataset 1: Historical Data with Revenue Metrics
+        const dataset1_historical = [
   {
     "id": 69032,
     "name": "On Foot Cologne Messe Fair Old Town Center Lanxess",
@@ -12978,10 +12979,7 @@
   }
 ];
         
-        // Dataset 2: Fresh Scraped Data (Rhine Region)
-        // Contains: Live Airbnb data from Essen to Neuwied, Aachen to Wetzlar
-        // Source: Scraped 230 properties from Airbnb
-        // Date: Recently scraped data
+        // Dataset 2: Fresh Scraped Rhine Region Data
         const dataset2_scraped = [
   {
     "id": 1378965018715262134,
@@ -23795,8 +23793,13 @@
   }
 ];
         
-        // Active dataset (default to historical)
-        let propertyData = dataset1_historical
+        // Active dataset (you can switch between them)
+        let activeDataset = 'dataset1';
+        
+        // Initialize with Dataset 1
+        let propertyData = dataset1_historical;
+        
+        // ============================================
         
         // Initialize map centered on Cologne
         const map = L.map('map').setView([50.9375, 6.9603], 12);
@@ -24171,47 +24174,35 @@
         
         // Event listeners
         
-        
-        // Dataset switcher functionality
-        const datasetInfo = {
-            historical: {
-                title: 'Dataset 1: Historical Data',
-                description: 'Historical performance data with revenue metrics, occupancy rates, and time-series analysis. Best for financial analysis.',
-                count: dataset1_historical.length,
-                features: ['TTM Revenue', 'Occupancy Rates', 'Historical Performance', 'Time Series Data']
-            },
-            scraped: {
-                title: 'Dataset 2: Fresh Scraped Data',
-                description: 'Live data scraped from Airbnb covering the Rhine region (Essen to Neuwied, Aachen to Wetzlar). Most recent pricing and availability.',
-                count: dataset2_scraped.length,
-                features: ['Current Prices', 'Live Ratings', 'Recent Reviews', 'Multiple Cities']
-            }
-        };
-        
+        // ============================================
+        // DATASET SWITCHER
+        // ============================================
         document.getElementById('dataset-selector').addEventListener('change', function(e) {
-            const selectedDataset = e.target.value;
+            const selected = e.target.value;
+            activeDataset = selected;
             
-            // Update property data
-            if (selectedDataset === 'historical') {
+            // Switch dataset
+            if (selected === 'dataset1') {
                 propertyData = dataset1_historical;
+                document.getElementById('dataset-info').innerHTML = `
+                    <strong>📈 Historical Data</strong><br>
+                    ${dataset1_historical.length} properties with TTM revenue, occupancy rates, and performance metrics. Best for financial analysis.
+                `;
             } else {
                 propertyData = dataset2_scraped;
+                document.getElementById('dataset-info').innerHTML = `
+                    <strong>🆕 Fresh Scraped Data</strong><br>
+                    ${dataset2_scraped.length} properties with live pricing across Rhine region (Essen, Cologne, Düsseldorf, Bonn). Current market data.
+                `;
             }
             
-            // Update info text
-            const info = datasetInfo[selectedDataset];
-            document.getElementById('dataset-info').innerHTML = `
-                <strong>${info.title}</strong><br>
-                ${info.description}<br>
-                <span style="color: #4CAF50; font-weight: 600;">${info.count} properties</span> • 
-                Features: ${info.features.join(', ')}
-            `;
+            console.log(`Switched to ${selected}: ${propertyData.length} properties`);
             
-            // Refresh the map with new data
+            // Refresh map
             updateMarkers();
-            
-            console.log(`Switched to ${info.title} (${info.count} properties)`);
         });
+        
+        // ============================================
         
         document.getElementById('metric').addEventListener('change', updateMarkers);
         document.getElementById('show-apartment').addEventListener('change', updateMarkers);
