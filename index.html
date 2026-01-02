@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cologne Properties Map - Interactive Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <style>
         * {
             margin: 0;
@@ -304,19 +306,222 @@
             font-size: 11px;
             color: #555;
         }
+    
+        /* Search Bar Styles */
+        .search-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 10px;
+            background: white;
+            padding: 12px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .search-button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .search-button:hover {
+            background: #45a049;
+        }
+        
+        .search-results {
+            margin-top: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .search-results.visible {
+            display: block;
+        }
+        
+        .search-result-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .search-result-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .result-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .result-details {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .no-results {
+            padding: 20px;
+            text-align: center;
+            color: #999;
+        }
+        
+        /* Cluster styles */
+        .marker-cluster-small {
+            background-color: rgba(76, 175, 80, 0.6);
+        }
+        .marker-cluster-small div {
+            background-color: rgba(76, 175, 80, 0.8);
+        }
+        
+        .marker-cluster-medium {
+            background-color: rgba(255, 152, 0, 0.6);
+        }
+        .marker-cluster-medium div {
+            background-color: rgba(255, 152, 0, 0.8);
+        }
+        
+        .marker-cluster-large {
+            background-color: rgba(244, 67, 54, 0.6);
+        }
+        .marker-cluster-large div {
+            background-color: rgba(244, 67, 54, 0.8);
+        }
+        
+        .marker-cluster {
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .marker-cluster div {
+            width: 30px;
+            height: 30px;
+            margin-left: 5px;
+            margin-top: 5px;
+            text-align: center;
+            border-radius: 15px;
+            font-size: 12px;
+            line-height: 30px;
+        }
+    
+        /* Collapsible Controls */
+        .controls-wrapper {
+            position: relative;
+            background: white;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        
+        .controls-toggle {
+            width: 100%;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .controls-toggle:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #653a8b 100%);
+        }
+        
+        .toggle-icon {
+            transition: transform 0.3s;
+            font-size: 12px;
+        }
+        
+        .controls-toggle.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+        
+        .controls {
+            max-height: 500px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+        }
+        
+        .controls.collapsed {
+            max-height: 0;
+            padding: 0 20px;
+        }
+        
+        /* Hide certain metrics for Dataset 2 */
+        .metric-option-hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
     
-    <div class="controls">
+    <!-- Search Bar -->
+    <div class="search-container">
+        <div class="search-box">
+            <input type="text" id="search-input" class="search-input" placeholder=" Search by city, address, or property name...">
+            <button onclick="searchProperties()" class="search-button">Search</button>
+        </div>
+        <div id="search-results" class="search-results"></div>
+    </div>
+    
+    
+    <div class="controls-wrapper">
+        <button id="controls-toggle" class="controls-toggle">
+            <span class="toggle-text">Hide Controls</span>
+            <span class="toggle-icon">▼</span>
+        </button>
+        <div class="controls" id="controls-panel">
         
         <!-- Dataset Selector -->
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; margin-bottom: 20px; color: white;">
             <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 250px;">
                     <label style="display: block; font-weight: 600; margin-bottom: 10px; font-size: 15px;">
-                        📊 Select Dataset
+                         Select Dataset
                     </label>
                     <select id="dataset-selector" style="width: 100%; padding: 12px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; background: white; color: #333;">
                         <option value="dataset1">Dataset 1: Historical (300 props) - Revenue & Occupancy Data</option>
@@ -324,7 +529,7 @@
                     </select>
                 </div>
                 <div id="dataset-info" style="flex: 1; min-width: 300px; font-size: 13px; line-height: 1.6;">
-                    <strong>📈 Historical Data</strong><br>
+                    <strong> Historical Data</strong><br>
                     300 properties with TTM revenue, occupancy rates, and performance metrics. Best for financial analysis.
                 </div>
             </div>
@@ -334,16 +539,16 @@
             <div class="control-group">
                 <label for="metric">Color by Metric:</label>
                 <select id="metric">
-                    <option value="ttm_revenue">Revenue (TTM)</option>
-                    <option value="ttm_occupancy">Occupancy Rate (TTM)</option>
-                    <option value="ttm_available_days">Available Days (TTM)</option>
+                    <option value="ttm_revenue" data-requires="revenue">Revenue (TTM)</option>
+                    <option value="ttm_occupancy" data-requires="revenue">Occupancy Rate (TTM)</option>
+                    <option value="ttm_available_days" data-requires="revenue">Available Days (TTM)</option>
                     <option value="ttm_avg_rate">Average Rate (TTM)</option>
-                    <option value="l90d_revenue">Revenue (Last 90 Days)</option>
-                    <option value="l90d_occupancy">Occupancy (Last 90 Days)</option>
+                    <option value="l90d_revenue" data-requires="revenue">Revenue (Last 90 Days)</option>
+                    <option value="l90d_occupancy" data-requires="revenue">Occupancy (Last 90 Days)</option>
                     <option value="rating">Overall Rating</option>
                     <option value="num_reviews">Number of Reviews</option>
-                    <option value="ts_total_revenue">Total Revenue (Time Series)</option>
-                </select>
+                    <option value="ts_total_revenue" data-requires="revenue">Total Revenue (Time Series)</option>
+                </select></select>
             </div>
             
             <div class="control-group">
@@ -351,24 +556,26 @@
                 <div class="checkbox-group">
                     <div class="checkbox-item">
                         <input type="checkbox" id="show-apartment" checked>
-                        <label for="show-apartment">🏢 Apartments</label>
+                        <label for="show-apartment"> Apartments</label>
                     </div>
                     <div class="checkbox-item">
                         <input type="checkbox" id="show-room" checked>
-                        <label for="show-room">🚪 Rooms</label>
+                        <label for="show-room"> Rooms</label>
                     </div>
                     <div class="checkbox-item">
                         <input type="checkbox" id="show-house" checked>
-                        <label for="show-house">🏠 Houses</label>
+                        <label for="show-house"> Houses</label>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    </div></div>
     
     <div class="legend" id="legend"></div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script>
         // Property data
         // ============================================
@@ -12996,7 +13203,7 @@
                 const githubUser = 'evelynebrie';
                 const repoName = 'cologne_airbnb_market';
                 const branch = 'main';
-                const filename = 'rhine_region_airbnb_map_format_comprehensive.json';
+                const filename = 'comprehensive_data.json';
                 
                 const url = `https://raw.githubusercontent.com/${githubUser}/${repoName}/${branch}/${filename}`;
                 
@@ -13008,11 +13215,11 @@
                 dataset2_scraped = await response.json();
                 dataset2_loaded = true;
                 
-                console.log(`✅ Loaded ${dataset2_scraped.length} properties from comprehensive dataset`);
+                console.log(` Loaded ${dataset2_scraped.length} properties from comprehensive dataset`);
                 return true;
                 
             } catch (error) {
-                console.error('❌ Error loading comprehensive dataset:', error);
+                console.error(' Error loading comprehensive dataset:', error);
                 alert(`Could not load comprehensive dataset from GitHub.\n\nError: ${error.message}\n\nMake sure rhine_region_airbnb_map_format_comprehensive.json is uploaded to your GitHub repo.\n\nUsing historical dataset instead.`);
                 return false;
             }
@@ -13037,6 +13244,7 @@
         
         // Store markers
         let markers = [];
+        let markerClusterGroup = null;
         
         // Color scales for different metrics
         const colorScales = {
@@ -13357,9 +13565,21 @@
         
         // Update markers
         function updateMarkers() {
-            // Clear existing markers
+            // Clear existing markers and cluster group
+            if (markerClusterGroup) {
+                map.removeLayer(markerClusterGroup);
+            }
             markers.forEach(marker => map.removeLayer(marker));
             markers = [];
+            
+            // Create new cluster group
+            markerClusterGroup = L.markerClusterGroup({
+                chunkedLoading: true,
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                zoomToBoundsOnClick: true,
+                maxClusterRadius: 50
+            });
             
             // Get selected metric and filters
             const metric = document.getElementById('metric').value;
@@ -13367,7 +13587,10 @@
             const showRoom = document.getElementById('show-room').checked;
             const showHouse = document.getElementById('show-house').checked;
             
+            console.log(`Rendering ${propertyData.length} properties with clustering...`);
+            
             // Filter and add markers
+            let addedCount = 0;
             propertyData.forEach(property => {
                 // Apply filters
                 if (property.type === 'apartment' && !showApartment) return;
@@ -13389,9 +13612,16 @@
                         className: 'custom-popup'
                     });
                 
-                marker.addTo(map);
+                // Add to cluster group instead of map
+                markerClusterGroup.addLayer(marker);
                 markers.push(marker);
+                addedCount++;
             });
+            
+            // Add cluster group to map
+            map.addLayer(markerClusterGroup);
+            
+            console.log(` Added ${addedCount} markers in clusters`);
             
             // Update legend
             updateLegend(metric);
@@ -13410,7 +13640,7 @@
             if (selected === 'dataset1') {
                 propertyData = dataset1_historical;
                 document.getElementById('dataset-info').innerHTML = `
-                    <strong>📈 Historical Data</strong><br>
+                    <strong> Historical Data</strong><br>
                     ${dataset1_historical.length} properties with TTM revenue, occupancy rates, and performance metrics. Best for financial analysis.
                 `;
                 updateMarkers();
@@ -13418,7 +13648,7 @@
             } else if (selected === 'dataset2') {
                 // Load comprehensive dataset if not already loaded
                 document.getElementById('dataset-info').innerHTML = `
-                    <strong>⏳ Loading comprehensive dataset...</strong><br>
+                    <strong> Loading comprehensive dataset...</strong><br>
                     Please wait while we fetch 9,829 properties from GitHub...
                 `;
                 
@@ -13426,7 +13656,7 @@
                     if (success) {
                         propertyData = dataset2_scraped;
                         document.getElementById('dataset-info').innerHTML = `
-                            <strong>🆕 Comprehensive Rhine Region Data</strong><br>
+                            <strong> Comprehensive Rhine Region Data</strong><br>
                             ${dataset2_scraped.length} properties across 496 cities! Live pricing from Essen, Cologne, Düsseldorf, Bonn, Aachen, Wuppertal, and hundreds more.
                         `;
                         updateMarkers();
@@ -13435,7 +13665,7 @@
                         document.getElementById('dataset-selector').value = 'dataset1';
                         propertyData = dataset1_historical;
                         document.getElementById('dataset-info').innerHTML = `
-                            <strong>📈 Historical Data</strong><br>
+                            <strong> Historical Data</strong><br>
                             ${dataset1_historical.length} properties. (Could not load comprehensive dataset)
                         `;
                         updateMarkers();
@@ -13457,6 +13687,174 @@
         updateMarkers();
         
         console.log(`Loaded ${propertyData.length} properties`);
+    
+        // ============================================
+        // SEARCH FUNCTIONALITY
+        // ============================================
+        
+        let searchIndex = [];
+        
+        function buildSearchIndex() {
+            searchIndex = propertyData.map(property => ({
+                ...property,
+                searchText: [
+                    property.name || '',
+                    property.city || '',
+                    property.listing_type || '',
+                    property.room_type || '',
+                    property.host_name || ''
+                ].join(' ').toLowerCase()
+            }));
+        }
+        
+        function searchProperties() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const resultsDiv = document.getElementById('search-results');
+            
+            if (!query) {
+                resultsDiv.classList.remove('visible');
+                return;
+            }
+            
+            // Build index if not already built
+            if (searchIndex.length === 0) {
+                buildSearchIndex();
+            }
+            
+            // Search
+            const results = searchIndex.filter(property => 
+                property.searchText.includes(query)
+            ).slice(0, 10); // Limit to 10 results
+            
+            // Display results
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="no-results">No properties found for "' + query + '"</div>';
+            } else {
+                resultsDiv.innerHTML = results.map(property => `
+                    <div class="search-result-item" onclick="zoomToProperty(${property.lat}, ${property.lng}, '${property.name.replace(/'/g, "\'")}')">
+                        <div class="result-name">${property.name}</div>
+                        <div class="result-details">
+                             ${property.city} • ${property.type} • €${property.ttm_avg_rate.toFixed(0)}/night
+                            ${property.rating > 0 ? ' •  ' + property.rating.toFixed(1) : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            resultsDiv.classList.add('visible');
+        }
+        
+        function zoomToProperty(lat, lng, name) {
+            // Close search results
+            document.getElementById('search-results').classList.remove('visible');
+            
+            // Zoom to property
+            map.setView([lat, lng], 16);
+            
+            // Find and open the marker popup
+            markers.forEach(marker => {
+                const markerLatLng = marker.getLatLng();
+                if (Math.abs(markerLatLng.lat - lat) < 0.0001 && 
+                    Math.abs(markerLatLng.lng - lng) < 0.0001) {
+                    marker.openPopup();
+                }
+            });
+        }
+        
+        // Search on Enter key
+        document.getElementById('search-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchProperties();
+            }
+        });
+        
+        // Close search results when clicking outside
+        document.addEventListener('click', function(e) {
+            const searchContainer = document.querySelector('.search-container');
+            if (!searchContainer.contains(e.target)) {
+                document.getElementById('search-results').classList.remove('visible');
+            }
+        });
+        
+        // Build search index when data changes
+        document.getElementById('dataset-selector').addEventListener('change', function() {
+            searchIndex = []; // Reset index when dataset changes
+        });
+        
+    
+        // ============================================
+        // COLLAPSIBLE CONTROLS
+        // ============================================
+        
+        document.getElementById('controls-toggle').addEventListener('click', function() {
+            const panel = document.getElementById('controls-panel');
+            const button = this;
+            const isCollapsed = panel.classList.contains('collapsed');
+            
+            if (isCollapsed) {
+                panel.classList.remove('collapsed');
+                button.classList.remove('collapsed');
+                button.querySelector('.toggle-text').textContent = 'Hide Controls';
+            } else {
+                panel.classList.add('collapsed');
+                button.classList.add('collapsed');
+                button.querySelector('.toggle-text').textContent = 'Show Controls';
+            }
+        });
+        
+        // ============================================
+        // METRIC FILTERING BY DATASET
+        // ============================================
+        
+        function updateAvailableMetrics() {
+            const metricSelect = document.getElementById('metric');
+            const options = metricSelect.querySelectorAll('option');
+            const currentMetric = metricSelect.value;
+            
+            // Check if we're using Dataset 2 (comprehensive/scraped)
+            const isDataset2 = activeDataset === 'dataset2';
+            
+            let needsMetricChange = false;
+            let firstAvailableMetric = null;
+            
+            options.forEach(option => {
+                const requiresRevenue = option.getAttribute('data-requires') === 'revenue';
+                
+                if (isDataset2 && requiresRevenue) {
+                    // Hide revenue metrics for Dataset 2
+                    option.style.display = 'none';
+                    if (option.value === currentMetric) {
+                        needsMetricChange = true;
+                    }
+                } else {
+                    option.style.display = '';
+                    if (firstAvailableMetric === null) {
+                        firstAvailableMetric = option.value;
+                    }
+                }
+            });
+            
+            // If current metric is not available, switch to first available
+            if (needsMetricChange && firstAvailableMetric) {
+                metricSelect.value = firstAvailableMetric;
+                console.log('Switched metric to:', firstAvailableMetric);
+            }
+        }
+        
+        // Update metrics when dataset changes
+        const originalDatasetChange = document.getElementById('dataset-selector').onchange;
+        document.getElementById('dataset-selector').addEventListener('change', function(e) {
+            // Call original handler first
+            if (originalDatasetChange) {
+                originalDatasetChange.call(this, e);
+            }
+            // Then update available metrics
+            setTimeout(updateAvailableMetrics, 100);
+        });
+        
+        // Update on initial load
+        updateAvailableMetrics();
+        
     </script>
 </body>
 </html>
