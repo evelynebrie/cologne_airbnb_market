@@ -13381,6 +13381,11 @@
         let markers = [];
         let markerClusterGroup = null;
         
+        // Cluster mode variables (must be declared early)
+        let clusterMode = 'count'; // 'count' or 'value'
+        let metricRange = { min: 0, max: 1 };
+                let markerClusterGroup = null;
+        
         // Color scales for different metrics
         const colorScales = {
             ttm_revenue: {
@@ -14202,8 +14207,7 @@
         // CLUSTER VALUE VISUALIZATION
         // ============================================
         
-        let clusterMode = 'count'; // 'count' or 'value'
-        let metricRange = { min: 0, max: 1 };
+        
         
         function toggleClusterMode() {
             const button = document.getElementById('toggle-cluster-mode');
@@ -14239,6 +14243,11 @@
         }
         
         function createClusterIcon(cluster) {
+            // Safety check
+            if (typeof clusterMode === 'undefined') {
+                clusterMode = 'count';
+            }
+            
             const markers = cluster.getAllChildMarkers();
             const count = markers.length;
             
